@@ -159,6 +159,15 @@ void handleMessage(mavlink_message_t* msg)
         }
         case MAVLINK_MSG_ID_GLOBAL_POSITION_INT: {
             mavlink_msg_global_position_int_decode(msg, &position);
+            Serial.print("Time: ");
+            Serial.println(position.time_boot_ms);
+            Serial.print("Lan: ");
+            Serial.println(position.lat);
+            Serial.print("Lon: ");
+            Serial.println(position.lon);
+            Serial.print("alt: ");
+            Serial.println(position.alt);
+            
             break;
         }
 //        
