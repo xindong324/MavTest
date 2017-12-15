@@ -102,7 +102,7 @@ void RecordLog()
     {
       First = false;
     }
-//    Serial.print("record gps");
+    Serial.print("record gps");
 //     Serial.println(position.time_boot_ms/1000);
 //     Serial.println(lastTime);
 //     Serial.println(delayTime);
@@ -129,9 +129,14 @@ void CreatFile()
   if(FileNum<0)
   {
     SD.mkdir("dxx");
-    FileName += "dxx/";
+   
+  }else
+  {
+    Dir.close();
   }
+   FileName += "/dxx/";
    FileName += "Log"+String(FileNum+1)+".txt";
+   Serial.println();
  
 }
 
