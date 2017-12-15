@@ -5,24 +5,33 @@
 #include <avr/pgmspace.h>
 #include <SPI.h>
 #include <SD.h>
+#include<math.h>
 
-
+int getDelayTime();
 const int chipSelect = 4;
 const int pinNum = 22;
-
+static int delayTime;
+static int initTime=10;
 
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(57600);
   Serial1.begin(57600);
-  delayTime = 1;
+//  delayTime = 1;
   delay(100);
+  
+  
+  delayTime = getDelayTime();//得到延迟时间
+  lastTime = initTime-1;
   if (!SD.begin(chipSelect)) {
     Serial.println("Card failed, or not present");
     // don't do anything more:
+    
   }
   else{
-   CreatFile();
+    
+   // lastTime = abs(initTime-delayTime);
+    CreatFile();//得到应该记录的文件名
   }
   
  
@@ -40,7 +49,6 @@ void loop() {
 
 void taskLoop()
 {
-  int a = 5000;
   bool is=false;
    mavlink_message_t msg;
    mavlink_status_t status;
@@ -48,7 +56,6 @@ void taskLoop()
     status.packet_rx_drop_count = 0;
   pinMode(pinNum,OUTPUT);
   digitalWrite(pinNum,HIGH);
-  //Serial1.print("\t\tReading some bytes: ");
   if(Serial1.available())
   {
     Serial.print("\t\tReading some bytes: ");
@@ -57,23 +64,13 @@ void taskLoop()
   while (Serial1.available() > 0)  
     {
       //Serial.println(Serial1.read());
-      uint8_t c = uint8_t(Serial1.read()) ;
+      uint8_t c = uint8_t(Serial1.read());
       is = true;
         //comdata += char(Serial.read());
      if (mavlink_parse_char(MAVLINK_COMM_0, c, &msg, &status))
      {
         Serial.println(msg.msgid);
         handleMessage(&msg);
-        //send_heartbeat(MAVLINK_COMM_0);
-        if(msg.msgid == MAVLINK_MSG_ID_HEARTBEAT) {
-         // digitalWrite(pinNum,LOW );
-          Serial.println("LOW");
-          //delay(1000);
-         // digitalWrite(pinNum,HIGH );
-         // Serial.println("HIGH");
-         // delay(a-1000);
-          break;
-        }
         
      }
         
@@ -81,12 +78,42 @@ void taskLoop()
     
 }
 
+//打开文件并记录数据,输出低电平
 void RecordLog()
 {
-  File myFile = SD.open(FileName, FILE_WRITE);
-  myFile.close();
+  static int First = true;
+  if((position.time_boot_ms/1000==initTime&&First)||position.time_boot_ms/1000-lastTime >= delayTime)
+  {
+    
+    digitalWrite(pinNum,LOW);
+    lastTime = position.time_boot_ms/1000;
+
+    
+    
+    File myFile = SD.open(FileName, FILE_WRITE);
+    String gpsData = String(position.time_boot_ms)+","+String(position.lat)+","+String(position.lon)+","+String(position.relative_alt);
+    myFile.println(gpsData);
+    myFile.close();
+    delay(100);
+  
+    digitalWrite(pinNum,HIGH);
+    
+    if(position.time_boot_ms/1000==initTime)
+    {
+      First = false;
+    }
+//    Serial.print("record gps");
+//     Serial.println(position.time_boot_ms/1000);
+//     Serial.println(lastTime);
+//     Serial.println(delayTime);
+    
+  }
+  
 }
 
+
+
+//得到需要打开的文件名，此函数并不执行创建或打开文件函数
 void CreatFile()
 {
   int FileNum = 0;
@@ -104,10 +131,12 @@ void CreatFile()
     SD.mkdir("dxx");
     FileName += "dxx/";
   }
-   FileName += "DataLog"+String(FileNum+1)+".txt";
+   FileName += "Log"+String(FileNum+1)+".txt";
  
 }
 
+
+//计算有几个log
 int CountFile(File Dir)
 {
   int Count = 0;
@@ -117,7 +146,6 @@ int CountFile(File Dir)
   {
     File entry = Dir.openNextFile();
     if(! entry) break;
-    
    // Serial.println(Dir.name());
     if(entry.isDirectory()) continue;
     else Count++;
@@ -125,6 +153,28 @@ int CountFile(File Dir)
   }
   return Count;
 }
+
+int getDelayTime()
+{
+ int  num = 5;
+ File dataFile = SD.open("delay.txt");  //打开datalog.txt文件
+
+  if (dataFile) {
+    while (dataFile.available()) {  //检查是否dataFile是否有数据
+      num = num*10+dataFile.read()-'0';
+    }
+    Serial.println(num);  //如果有数据则把数据发送到串口
+    dataFile.close();  //关闭dataFile
+  }  
+  
+  else {
+    num = 5;
+   // Serial.println("error opening datalog.txt");  //如果文件无法打开串口发送信息error opening datalog.txt
+  }
+ 
+   return num;
+}
+
 
 void handleMessage(mavlink_message_t* msg)
 {//根据Id解析mavlink消息
@@ -135,15 +185,27 @@ void handleMessage(mavlink_message_t* msg)
            
             break;
         }
+        case MAVLINK_MSG_ID_GLOBAL_POSITION_INT: {
+            mavlink_msg_global_position_int_decode(msg, &position);
+            if(position.time_boot_ms/1000>=initTime)
+            {
+               RecordLog();
+               Serial.println("record");
+            }
+            Serial.print("Time: ");
+            Serial.println(position.time_boot_ms);
+            Serial.print("Lan: ");
+            Serial.println(position.lat);
+            Serial.print("Lon: ");
+            Serial.println(position.lon);
+            Serial.print("alt: ");
+            Serial.println(position.relative_alt);
+            
+            break;
+        }
         case MAVLINK_MSG_ID_SYS_STATUS:{
           mavlink_msg_sys_status_decode(msg,&sys);
           //mavlink_sys_status_decode
-          break;
-        }
-        case MAVLINK_MSG_ID_SYSTEM_TIME:{
-          mavlink_msg_system_time_decode(msg,&sys_time);
-          Serial.print("SYS_TIME");
-          Serial.println(sys_time.time_boot_ms);
           break;
         }
         case MAVLINK_MSG_ID_ATTITUDE: {
@@ -157,29 +219,7 @@ void handleMessage(mavlink_message_t* msg)
           mavlink_msg_gps_raw_int_decode(msg,&gpsPos);
           break;
         }
-        case MAVLINK_MSG_ID_GLOBAL_POSITION_INT: {
-            mavlink_msg_global_position_int_decode(msg, &position);
-            Serial.print("Time: ");
-            Serial.println(position.time_boot_ms);
-            Serial.print("Lan: ");
-            Serial.println(position.lat);
-            Serial.print("Lon: ");
-            Serial.println(position.lon);
-            Serial.print("alt: ");
-            Serial.println(position.alt);
-            
-            break;
-        }
-//        
-//        case MAVLINK_MSG_ID_AHRS: {
-//            mavlink_msg_ahrs_decode(msg, &ahrs); 
-//            break;
-//        }
         
-        case MAVLINK_MSG_ID_COMMAND_ACK: {
-          mavlink_msg_command_ack_decode(msg,&ack);       
-          break;
-        }
         default:
             break;
     }     // end switch
