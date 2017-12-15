@@ -118,23 +118,24 @@ void CreatFile()
 {
   int FileNum = 0;
   // if the file is available, write to it:
-  File Dir = SD.open("/dxx/");
+  File Dir = SD.open("/data");
   if(Dir.isDirectory() ==false)
   {
     Serial.println("Not a Dir");
+    SD.mkdir("data");
   }
    FileNum = CountFile(Dir);
   Serial.println(FileNum);
    FileName = "";
   if(FileNum<0)
   {
-    SD.mkdir("dxx");
+    
    
   }else
   {
     Dir.close();
   }
-   FileName += "/dxx/";
+   FileName += "/data/";
    FileName += "Log"+String(FileNum+1)+".txt";
    Serial.println();
  
