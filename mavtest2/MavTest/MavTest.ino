@@ -1,17 +1,16 @@
-#include"define.h"
-#include "global.h"
+
 #include"mavlink_avoid_errors.h"
 #include"MAVLINK/common/mavlink.h"
-#include <avr/pgmspace.h>
 #include <SPI.h>
 #include <SD.h>
-#include<math.h>
 
-int getDelayTime();
+
 const int chipSelect = 4;
 const int pinNum = 22;
 static int delayTime;
 static int initTime=10;
+static int lastTime = 0;
+String FileName;
 
 void setup() {
   // put your setup code here, to run once:
@@ -79,7 +78,7 @@ void taskLoop()
 }
 
 //打开文件并记录数据,输出低电平
-void RecordLog()
+void RecordLog(mavlink_global_position_int_t position)
 {
   static int First = true;
   if((position.time_boot_ms/1000==initTime&&First)||position.time_boot_ms/1000-lastTime >= delayTime)
@@ -103,9 +102,6 @@ void RecordLog()
       First = false;
     }
     Serial.print("record gps");
-//     Serial.println(position.time_boot_ms/1000);
-//     Serial.println(lastTime);
-//     Serial.println(delayTime);
     
   }
   
@@ -184,18 +180,15 @@ int getDelayTime()
 
 void handleMessage(mavlink_message_t* msg)
 {//根据Id解析mavlink消息
-    //struct Location tell_command = {};                                  // command for telemetry
+    //struct Location tell_command = {};    
+    // command for telemetry
+     mavlink_global_position_int_t position;
     switch (msg->msgid) {
-        case MAVLINK_MSG_ID_HEARTBEAT: {
-            mavlink_msg_heartbeat_decode(msg, &heartbeat);    
-           
-            break;
-        }
         case MAVLINK_MSG_ID_GLOBAL_POSITION_INT: {
             mavlink_msg_global_position_int_decode(msg, &position);
             if(position.time_boot_ms/1000>=initTime)
             {
-               RecordLog();
+               RecordLog(position);
                Serial.println("record");
             }
             Serial.print("Time: ");
@@ -208,22 +201,6 @@ void handleMessage(mavlink_message_t* msg)
             Serial.println(position.relative_alt);
             
             break;
-        }
-        case MAVLINK_MSG_ID_SYS_STATUS:{
-          mavlink_msg_sys_status_decode(msg,&sys);
-          //mavlink_sys_status_decode
-          break;
-        }
-        case MAVLINK_MSG_ID_ATTITUDE: {
-            mavlink_msg_attitude_decode(msg, &attitude);
-//            Serial.print("attitude= ");
-//            Serial.println(attitude.roll);
-            break;
-        }
-        case MAVLINK_MSG_ID_GPS_RAW_INT:
-        {
-          mavlink_msg_gps_raw_int_decode(msg,&gpsPos);
-          break;
         }
         
         default:
