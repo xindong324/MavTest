@@ -7,7 +7,6 @@
 #include <SD.h>
 #include<math.h>
 
-int getDelayTime();
 const int chipSelect = 4;
 const int pinNum = 22;
 static int delayTime;
@@ -21,7 +20,7 @@ void setup() {
   delay(100);
   
   
-  delayTime = getDelayTime();//得到延迟时间
+  
   lastTime = initTime-1;
   if (!SD.begin(chipSelect)) {
     Serial.println("Card failed, or not present");
@@ -29,7 +28,7 @@ void setup() {
     
   }
   else{
-    
+    delayTime = getDelayTime();//得到延迟时间
    // lastTime = abs(initTime-delayTime);
     CreatFile();//得到应该记录的文件名
   }
@@ -162,20 +161,20 @@ int CountFile(File Dir)
 
 int getDelayTime()
 {
- int  num = 5;
- File dataFile = SD.open("delay.txt");  //打开datalog.txt文件
-
+  int  num = 0 ;
+  File dataFile = SD.open("time.txt");  //打开datalog.txt文件
   if (dataFile) {
     while (dataFile.available()) {  //检查是否dataFile是否有数据
       num = num*10+dataFile.read()-'0';
-    }
+      }
     Serial.println(num);  //如果有数据则把数据发送到串口
     dataFile.close();  //关闭dataFile
-  }  
+    }  
   
   else {
+    
     num = 5;
-   // Serial.println("error opening datalog.txt");  //如果文件无法打开串口发送信息error opening datalog.txt
+    Serial.println("error opening datalog.txt");  //如果文件无法打开串口发送信息error opening datalog.txt
   }
  
    return num;
