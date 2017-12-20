@@ -20,7 +20,7 @@ void setup() {
   delay(100);
   
   
-  delayTime = getDelayTime();//得到延迟时间
+ 
   lastTime = initTime-1;
   if (!SD.begin(chipSelect)) {
     Serial.println("Card failed, or not present");
@@ -28,7 +28,7 @@ void setup() {
     
   }
   else{
-    
+     delayTime = getDelayTime();//得到延迟时间
    // lastTime = abs(initTime-delayTime);
     CreatFile();//得到应该记录的文件名
   }
@@ -83,19 +83,26 @@ void RecordLog(mavlink_global_position_int_t position)
   static int First = true;
   if((position.time_boot_ms/1000==initTime&&First)||position.time_boot_ms/1000-lastTime >= delayTime)
   {
-    
     digitalWrite(pinNum,LOW);
     lastTime = position.time_boot_ms/1000;
 
     
     
     File myFile = SD.open(FileName, FILE_WRITE);
+    if (myFile) {
     String gpsData = String(position.time_boot_ms)+","+String(position.lat)+","+String(position.lon)+","+String(position.relative_alt);
+    Serial.println(gpsData);
     myFile.println(gpsData);
     myFile.close();
-    delay(100);
+    delay(200);
   
     digitalWrite(pinNum,HIGH);
+  }  
+  
+  else {
+    Serial.println("error opening datalog.txt");  //如果文件无法打开串口发送信息error opening datalog.txt
+  }
+   
     
     if(position.time_boot_ms/1000==initTime)
     {
@@ -104,7 +111,6 @@ void RecordLog(mavlink_global_position_int_t position)
     Serial.print("record gps");
     
   }
-  
 }
 
 
@@ -158,9 +164,8 @@ int CountFile(File Dir)
 
 int getDelayTime()
 {
- int  num = 5;
- File dataFile = SD.open("delay.txt");  //打开datalog.txt文件
-
+ int  num = 0;
+ File dataFile = SD.open("time.txt");  //打开datalog.txt文件
   if (dataFile) {
     while (dataFile.available()) {  //检查是否dataFile是否有数据
       num = num*10+dataFile.read()-'0';
@@ -170,8 +175,9 @@ int getDelayTime()
   }  
   
   else {
+    
     num = 5;
-   // Serial.println("error opening datalog.txt");  //如果文件无法打开串口发送信息error opening datalog.txt
+    Serial.println("error opening datalog.txt");  //如果文件无法打开串口发送信息error opening datalog.txt
   }
  
    return num;
